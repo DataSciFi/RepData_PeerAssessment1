@@ -3,18 +3,133 @@
 
 ## Loading and preprocessing the data
 
-
+```{r echo=TRUE}
+setwd("/home/antony/Dropbox/Courses/1405_ReproducibleResearch/project01/RepData_PeerAssessment1")
+activity <- read.csv("activity.csv", header=TRUE)
+summary(activity)
+```
 
 ## What is mean total number of steps taken per day?
 
+Prepare daily steps number subset
+```{r echo=TRUE}
+steps.daily <- sapply(
+  unique(activity$date), 
+  function (x) sum(activity$steps[activity$date == x], na.rm=TRUE)
+)
+```
+Total number of steps taken daily histogramm
+```{r echo=TRUE}
+hist(steps.daily, main="Total number of steps taken daily", xlab="Steps number")
+```
+The mean and the median of the total number of steps taken daily
+```{r echo=TRUE}
+mean(steps.daily, na.rm = TRUE)
+median(steps.daily, na.rm = TRUE)
+```
 
 
 ## What is the average daily activity pattern?
+Prepare interval data subset
+```{r echo=TRUE}
+intervals <- unique(activity$interval)
+steps.by.interval <- sapply(
+  intervals, 
+  function (x) mean(activity$steps[activity$interval == x], na.rm=TRUE)
+)
+```
 
+A time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+```{r echo=TRUE}
+plot(
+  intervals, 
+  steps.by.interval, 
+  type="l",
+  main="Average steps number by 5-minute interval",
+  xlab="Interval ID",
+  ylab="Average steps number"
+)
+```
 
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r echo=TRUE}
+intervals[which.max(steps.by.interval)]
+```
 
 ## Imputing missing values
 
+The total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r echo=TRUE}
+sum(!complete.cases(activity))
+```
+
+The strategy for filling in all of the missing values in the dataset is to use the mean that 5-minute interval. New data set __activity.complete__
+```{r echo=TRUE}
+activity.complete <- activity
+interval.means <- data.frame(interval = intervals, stepmean = steps.by.interval)
+narows <- attr(activity.complete[!complete.cases(activity.complete),], "row.names")
+for (idRow in narows) {
+  activity.complete[idRow,"steps"] <- interval.means[interval.means$interval == activity.complete[idRow,"interval"],"stepmean"]
+}
+```
+
+
+A histogram of the total number of steps taken each day, the mean and median. These values do differ from the estimates from the first part of the assignment. After imputing missing data the distribution of estimates is looking more normal.
+```{r echo=TRUE}
+steps.daily.complete <- sapply(
+  unique(activity.complete$date), 
+  function (x) sum(activity.complete$steps[activity.complete$date == x])
+)
+hist(steps.daily.complete, main="Total number of steps taken daily", xlab="Steps number")
+mean(steps.daily.complete)
+median(steps.daily.complete)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+Let's create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day. The updated data frame is __activity.complete.daytype__
+```{r echo=TRUE}
+mapdays <- data.frame(
+  dname = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+  dtype = append(rep("weekday", 5), rep("weekend", 2))
+)
+daytype <- sapply(
+  weekdays(as.POSIXlt(activity.complete$date, tz="GMT")), 
+  function(x) mapdays$dtype[mapdays$dname == x]
+)
+activity.complete.daytype <- cbind(activity.complete, daytype)
+```
+
+A panel plot below contains a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+```{r echo=TRUE}
+steps.by.interval.weekends <- sapply(
+  intervals, 
+  function (x) mean(activity.complete.daytype$steps[activity.complete.daytype$interval == x & activity.complete.daytype$daytype == "weekend"])
+)
+steps.by.interval.weekdays <- sapply(
+  intervals, 
+  function (x) mean(activity.complete.daytype$steps[activity.complete.daytype$interval == x & activity.complete.daytype$daytype == "weekday"])
+)
+library(lattice)
+par(mfrow=c(2,1))
+plot(
+  intervals, 
+  steps.by.interval.weekends, 
+  type="l",
+  main="Average steps by 5-minute interval on weekends",
+  xlab="Interval ID",
+  ylab="Average steps number"
+)
+plot(
+  intervals, 
+  steps.by.interval.weekdays, 
+  type="l",
+  main="Average steps by 5-minute interval on weekdays",
+  xlab="Interval ID",
+  ylab="Average steps number"
+)
+
+```
+
+
